@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:provider/provider.dart';
 
+import '../helpers/calculate_distances.dart';
 import '../providers/location_provider.dart';
 import '../providers/route_provider.dart';
 
@@ -14,11 +15,14 @@ class MapScreen extends StatefulWidget {
 
 class _MapScreenState extends State<MapScreen> {
   GoogleMapController? _mapController;
-  final TextEditingController _distanceController = TextEditingController();
+  final TextEditingController _timeController = TextEditingController();
+
+  // Average walking speed in m/s (approx 1.4 m/s = ~5 km/h)
+  final double averageWalkingSpeed = 1.4;
 
   @override
   void dispose() {
-    _distanceController.dispose();
+    _timeController.dispose();
     super.dispose();
   }
 
@@ -27,7 +31,7 @@ class _MapScreenState extends State<MapScreen> {
     final locationProvider = Provider.of<LocationProvider>(context);
     final routeProvider = Provider.of<RouteProvider>(context);
 
-    // Get current location if available
+    // Get current location if available, or fallback coordinates
     final currentLocation = locationProvider.currentLocation;
     final startPoint = currentLocation != null
         ? LatLng(currentLocation.latitude!, currentLocation.longitude!)
@@ -52,6 +56,9 @@ class _MapScreenState extends State<MapScreen> {
         ),
       );
     }
+
+    // Calculate the actual distance of the generated route
+    double routeDistance = calculateTotalDistance(routeProvider.routePoints);
 
     return Scaffold(
       appBar: AppBar(
@@ -86,23 +93,32 @@ class _MapScreenState extends State<MapScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     TextField(
-                      controller: _distanceController,
+                      controller: _timeController,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'Enter target distance (meters)',
+                        labelText: 'Enter walking time (minutes)',
                       ),
                     ),
                     const SizedBox(height: 10),
                     ElevatedButton(
                       style: ButtonStyle(
-                          foregroundColor:
-                              const WidgetStatePropertyAll(Colors.white),
-                          backgroundColor:
-                              WidgetStatePropertyAll(Colors.purple.shade300)),
+                        foregroundColor:
+                            const WidgetStatePropertyAll(Colors.white),
+                        backgroundColor:
+                            WidgetStatePropertyAll(Colors.purple.shade300),
+                      ),
                       onPressed: () async {
+                        // Parse entered time (in minutes) and convert to seconds
+                        double targetTimeMinutes =
+                            double.tryParse(_timeController.text) ?? 20;
+                        double targetTimeSeconds = targetTimeMinutes * 60;
+                        // Calculate the target distance using average walking speed
                         double targetDistance =
-                            double.tryParse(_distanceController.text) ?? 1000;
-                        routeProvider.generateRoute(startPoint, targetDistance);
+                            averageWalkingSpeed * targetTimeSeconds;
+
+                        // Generate the route using the calculated target distance
+                        await routeProvider.generateRoute(
+                            startPoint, targetDistance);
 
                         _mapController?.animateCamera(
                           CameraUpdate.newLatLng(startPoint),
@@ -115,6 +131,7 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
           ),
+          // Display the actual route distance from the generated route
           Positioned(
             top: 20,
             left: 10,
@@ -126,9 +143,10 @@ class _MapScreenState extends State<MapScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text("Distance: ${_distanceController.text} m"),
-                    // Text(
-                    //     "Estimated Time: ${(walkingSpeed * _calculateDistance(routeProvider.routePoints) / 60).toStringAsFixed(1)} mins"),
+                    Text(
+                      "Route Distance: ${routeDistance.toStringAsFixed(0)} m",
+                      style: const TextStyle(fontSize: 16),
+                    ),
                   ],
                 ),
               ),
