@@ -12,32 +12,39 @@ class RouteProvider extends ChangeNotifier {
 
   List<LatLng> get routePoints => _routePoints;
 
-  /// Generates a looped walking route based on user input
+  /// Generates a looped walking route based on user input (time/distance)
   Future<void> generateRoute(LatLng startPoint, double distanceMeters) async {
     _routePoints = [];
 
-    // Generate a Random Waypoint within a Distance Range
-    LatLng waypoint = _generateRandomWaypoint(startPoint, distanceMeters / 2);
+    LatLng waypoint1 = _generateRandomWaypoint(startPoint, distanceMeters / 3);
+    LatLng waypoint2 = _generateRandomWaypoint(startPoint, distanceMeters / 3);
 
-    // Fetch Outward Route (Start → Waypoint)
-    List<LatLng> outRoute = await _getWalkingRoute(startPoint, waypoint);
 
-    // Fetch Return Route (Waypoint → Start)
-    List<LatLng> returnRoute = await _getWalkingRoute(waypoint, startPoint);
+    // Fetch route segments:
+    // 1. Start → Waypoint1
+    List<LatLng> segment1 = await _getWalkingRoute(startPoint, waypoint1);
 
-    // Combine the Two Paths into One Loop
-    _routePoints.addAll(outRoute);
-    _routePoints.addAll(returnRoute);
+    // 2. Waypoint1 → Waypoint2
+    List<LatLng> segment2 = await _getWalkingRoute(waypoint1, waypoint2);
+
+    // 3. Waypoint2 → Start
+    List<LatLng> segment3 = await _getWalkingRoute(waypoint2, startPoint);
+
+    // Combine segments to form a loop
+    _routePoints = [
+      ...segment1,
+      ...segment2,
+      ...segment3,
+    ];
 
     notifyListeners();
   }
 
-  /// Generates a random waypoint within a given distance
+  /// Generates a random waypoint within a given distance (in meters)
   LatLng _generateRandomWaypoint(LatLng origin, double maxDistance) {
     Random random = Random();
-
-    // Convert max distance to degrees (approximation)
-    double maxOffset = maxDistance / 111000; // 1 degree ≈ 111 km
+    double maxOffset =
+        maxDistance / 111000; // Approximate conversion from meters to degrees
 
     double latOffset = (random.nextDouble() - 0.5) * maxOffset * 2;
     double lngOffset = (random.nextDouble() - 0.5) * maxOffset * 2;
@@ -55,7 +62,6 @@ class RouteProvider extends ChangeNotifier {
             "&key=$apiKey");
 
     final response = await http.get(url);
-
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       return _decodePolyline(data['routes'][0]['overview_polyline']['points']);
@@ -72,7 +78,6 @@ class RouteProvider extends ChangeNotifier {
 
     while (index < len) {
       int b, shift = 0, result = 0;
-
       do {
         b = polyline.codeUnitAt(index++) - 63;
         result |= (b & 0x1F) << shift;
@@ -83,7 +88,6 @@ class RouteProvider extends ChangeNotifier {
 
       shift = 0;
       result = 0;
-
       do {
         b = polyline.codeUnitAt(index++) - 63;
         result |= (b & 0x1F) << shift;
