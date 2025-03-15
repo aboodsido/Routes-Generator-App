@@ -5,9 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 
+import '../constants.dart';
+
 class RouteProvider extends ChangeNotifier {
   List<LatLng> _routePoints = [];
-  final String _apiKey = 'AIzaSyBPP4uPku5JVfd9pWICx-NTnXh5qFxOaF8';
 
   List<LatLng> get routePoints => _routePoints;
 
@@ -15,16 +16,16 @@ class RouteProvider extends ChangeNotifier {
   Future<void> generateRoute(LatLng startPoint, double distanceMeters) async {
     _routePoints = [];
 
-    // 1️⃣ Generate a Random Waypoint within a Distance Range
+    // Generate a Random Waypoint within a Distance Range
     LatLng waypoint = _generateRandomWaypoint(startPoint, distanceMeters / 2);
 
-    // 2️⃣ Fetch Outward Route (Start → Waypoint)
+    // Fetch Outward Route (Start → Waypoint)
     List<LatLng> outRoute = await _getWalkingRoute(startPoint, waypoint);
 
-    // 3️⃣ Fetch Return Route (Waypoint → Start)
+    // Fetch Return Route (Waypoint → Start)
     List<LatLng> returnRoute = await _getWalkingRoute(waypoint, startPoint);
 
-    // 4️⃣ Combine the Two Paths into One Loop
+    // Combine the Two Paths into One Loop
     _routePoints.addAll(outRoute);
     _routePoints.addAll(returnRoute);
 
@@ -51,7 +52,7 @@ class RouteProvider extends ChangeNotifier {
             "origin=${start.latitude},${start.longitude}"
             "&destination=${end.latitude},${end.longitude}"
             "&mode=walking"
-            "&key=$_apiKey");
+            "&key=$apiKey");
 
     final response = await http.get(url);
 
